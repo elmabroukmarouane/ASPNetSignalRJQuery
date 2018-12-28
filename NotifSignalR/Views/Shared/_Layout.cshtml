@@ -1,0 +1,113 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewBag.Title - My ASP.NET Application</title>
+    <link href="~/Content/Site.css" rel="stylesheet" type="text/css" />
+    <link href="~/Content/bootstrap.min.css" rel="stylesheet" type="text/css" />
+    <script src="~/Scripts/modernizr-2.6.2.js"></script>
+</head>
+<body>
+    <div class="navbar navbar-inverse navbar-fixed-top">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                @Html.ActionLink("Notification SignalR", "Index", "Home", new { area = "" }, new { @class = "navbar-brand" })
+            </div>
+            <div class="navbar-collapse collapse">
+                <ul class="nav navbar-nav"></ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="container body-content">
+        @RenderBody()
+        <hr />
+        <footer>
+            <p>&copy; @DateTime.Now.Year - My ASP.NET Application</p>
+        </footer>
+    </div>
+
+    <script src="~/Scripts/jquery-1.10.2.min.js"></script>
+    <script src="~/Scripts/bootstrap.min.js"></script>
+    <script src="~/Scripts/jquery.signalR-2.2.2.min.js"></script>
+    <script src="/signalr/hubs"></script>
+    <script>
+        var notificationsHub = $.connection.notificationsHub;
+        var usersList = [];
+        var utilisateur_moi = {};
+        var counterNotifications = 0;
+        var selectedConnectionId = "";
+        function appendUsers(usersList) {
+            $("#usersList").html("");
+            $.each(usersList, function (index, user) {
+                $("#usersList").append("<li><input onclick=\"setSelectedConnectionId('" + user.ConnectionId + "')\" type=\"radio\" value=\"" + user.ConnectionId + "\" name=\"setSelectedConnectionId\"> " + user.UserName + " || " + user.ConnectionId + "</li>");
+            });
+        }
+        function setSelectedConnectionId(connectionId)
+        {
+            selectedConnectionId = connectionId;
+            console.log(selectedConnectionId);
+        }
+        $(document).ready(function () {
+            $("#counterNotifications").html(counterNotifications);
+            $('#diffuser-btn').click(function () {
+                if ($("#message").val() !== "")
+                    notificationsHub.server.sendNotificationAll($("#message").val(), $("#username").html());
+                else
+                    alert("Entrer votre message !");
+                $("#message").val("");
+            });
+            $('#prive-btn').click(function () {
+                if (selectedConnectionId !== "") {
+                    if ($("#message").val() !== "")
+                        notificationsHub.server.sendNotificationSelected($("#message").val(), selectedConnectionId, utilisateur_moi.ConnectionId);
+                    else
+                        alert("Entrer votre message !");
+                    $("#message").val("");
+                    selectedConnectionId = "";
+                }
+                else
+                {
+                    alert("Veuillez séléctionner un utilisateur !");
+                }
+            });
+            $('#reset-notification-btn').click(function () {
+                counterNotifications = 0;
+                $("#counterNotifications").html(counterNotifications);
+            });
+            $.connection.hub.start().done(function (socket) {
+                utilisateur_moi = usersList.find(function (user) {
+                    return user.ConnectionId === socket.id;
+                }); 
+                $("#username").html(utilisateur_moi.UserName);
+            });
+            /**/
+            notificationsHub.client.onDisconnectUser = function (list) {
+                utilisateur_moi = {};
+                usersList = list;
+                appendUsers(usersList);
+            }
+            notificationsHub.client.onNewUserConnected = function (utilisateur, list) {
+                usersList = list;
+                appendUsers(usersList);
+            }
+            notificationsHub.client.incrementcounterNotifications = function () {
+                counterNotifications++;
+                $("#counterNotifications").html(counterNotifications);
+            };
+            notificationsHub.client.broadCastMessages = function (message, utilisateur) {
+                $("#show-messages").append("<b style='text-decoration: underline;'>" + utilisateur.UserName + "</b> ==> " + message + "<br />");
+            };
+            notificationsHub.client.sendPrivateMessage = function (message, utilisateur) {
+                $("#privateMessage").append("<b style='text-decoration: underline;'>" + utilisateur.UserName + "</b> ==> " + message + "<br />");
+            };
+        });
+    </script>
+</body>
+</html>
